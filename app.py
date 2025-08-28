@@ -116,65 +116,38 @@ class SimplePDFConverter:
         
         output = io.BytesIO()
         
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            workbook = writer.book
-            
-            # Create formatting
-            header_format = workbook.add_format({
-                'bold': True,
-                'bg_color': '#4CAF50',
-                'font_color': 'white',
-                'border': 1
-            })
-            
-            cell_format = workbook.add_format({
-                'border': 1,
-                'align': 'left'
-            })
-            
-            # Create document info sheet
-            if self.metadata:
-                info_data = [[k.replace('_', ' ').title(), v] for k, v in self.metadata.items()]
-                df_info = pd.DataFrame(info_data, columns=['Property', 'Value'])
-                df_info.to_excel(writer, sheet_name='Document_Info', index=False)
+        try:
+            # Use openpyxl engine instead of xlsxwriter to avoid compatibility issues
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 
-                worksheet = writer.sheets['Document_Info']
-                worksheet.set_column('A:A', 20)
-                worksheet.set_column('B:B', 30)
-                worksheet.set_row(0, None, header_format)
-            
-            # Create sheet for each table
-            for table in self.tables:
-                try:
-                    # Convert to DataFrame
-                    df = pd.DataFrame(table['data'][1:], columns=table['data'][0])
-                    
-                    # Clean sheet name (Excel limitations)
-                    sheet_name = table['name'][:31].replace('/', '_').replace('\\', '_')
-                    
-                    # Write to Excel
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
-                    
-                    # Format the sheet
-                    worksheet = writer.sheets[sheet_name]
-                    
-                    # Auto-adjust column widths
-                    for i, col in enumerate(df.columns):
-                        max_len = max(
-                            df[col].astype(str).map(len).max() if len(df) > 0 else 0,
-                            len(str(col))
-                        ) + 2
-                        worksheet.set_column(i, i, min(max_len, 50))
-                    
-                    # Apply formatting
-                    worksheet.set_row(0, None, header_format)
-                    
-                except Exception as e:
-                    st.warning(f"Could not process table {table['name']}: {str(e)}")
-                    continue
+                # Create document info sheet
+                if self.metadata:
+                    info_data = [[k.replace('_', ' ').title(), v] for k, v in self.metadata.items()]
+                    df_info = pd.DataFrame(info_data, columns=['Property', 'Value'])
+                    df_info.to_excel(writer, sheet_name='Document_Info', index=False)
+                
+                # Create sheet for each table
+                for table in self.tables:
+                    try:
+                        # Convert to DataFrame
+                        df = pd.DataFrame(table['data'][1:], columns=table['data'][0])
+                        
+                        # Clean sheet name (Excel limitations)
+                        sheet_name = table['name'][:31].replace('/', '_').replace('\\', '_')
+                        
+                        # Write to Excel
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                        
+                    except Exception as e:
+                        st.warning(f"Could not process table {table['name']}: {str(e)}")
+                        continue
         
-        output.seek(0)
-        return output
+            output.seek(0)
+            return output
+            
+        except Exception as e:
+            st.error(f"Error creating Excel file: {str(e)}")
+            return None
 
 # Streamlit App
 def main():
